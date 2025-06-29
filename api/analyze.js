@@ -53,7 +53,7 @@ const masterChecklist = [
   async function checkLabelCompliance(base64Data, mimeType) {
     // We get the API key from environment variables for security
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-    const GEMINI_MODEL = "gemini-pro-vision"; // A stable model for this task
+    const GEMINI_MODEL = "gemini-2.5-flash"; // A stable model for this task
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
     
     const instructions = masterChecklist.map(p => `${p.id}. ${p.text}`).join('\n\n');
