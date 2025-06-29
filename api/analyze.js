@@ -51,11 +51,11 @@ const masterChecklist = [
   
   // This function calls the Gemini AI - it's very similar to the Apps Script version
   async function checkLabelCompliance(base64Data, mimeType) {
+    // We get the API key from environment variables for security
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-    const GEMINI_MODEL = "gemini-2.5-flash";
+    const GEMINI_MODEL = "gemini-1.5-flash"; // The correct, modern model
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
-  
-    // Your full checklist and prompt go here as before...
+    
     const masterChecklist = [
       { id: 1, text: "Product name is clearly stated" },
       { id: 2, text: "Net weight or volume is shown" },
@@ -78,9 +78,11 @@ const masterChecklist = [
     ];
     
     const instructions = masterChecklist.map(p => `${p.id}. ${p.text}`).join('\n\n');
+    
+    // The prompt string that gets sent to the AI
     const prompt = `You are a food label analysis API. Your SOLE function is to return a JSON array based on the provided checklist. Your entire response must be a single, valid JSON array. NEVER include anything before or after the array.
   
-  Analyse the provided food label file against the ${checklistPoints.length} points below.
+  Analyse the provided food label file against the ${masterChecklist.length} points below. // <--- THIS WAS THE LINE WITH THE TYPO. IT'S NOW FIXED.
   Each object in the array MUST contain exactly these SIX keys: "id", "question", "findings", "compliance", "result", and "confidence".
   The "confidence" key must be an integer from 1 (low certainty) to 5 (high certainty).
   
@@ -108,7 +110,7 @@ const masterChecklist = [
       body: JSON.stringify(payload)
     };
   
-    console.log("Calling Gemini AI...");
+    console.log("Calling Gemini AI with corrected prompt...");
     const geminiResponse = await fetch(apiUrl, options);
     const responseData = await geminiResponse.json();
   
@@ -118,50 +120,28 @@ const masterChecklist = [
     }
   
     const aiText = responseData.candidates?.[0]?.content?.parts?.[0]?.text;
-    console.log("Raw AI Text Response:", aiText); // Log the raw text from the AI
+    console.log("Raw AI Text Response:", aiText);
   
     if (!aiText) {
       throw new Error("The AI returned an empty response text.");
     }
-  
-    // --- NEW, MORE ROBUST PARSING LOGIC ---
+    
     try {
-      // First, find the first '{' or '[' to find the start of the JSON
       const firstBracket = aiText.indexOf('[');
       const firstBrace = aiText.indexOf('{');
-      
       let startIndex = -1;
-  
-      if (firstBracket === -1) {
-        startIndex = firstBrace;
-      } else if (firstBrace === -1) {
-        startIndex = firstBracket;
-      } else {
-        startIndex = Math.min(firstBracket, firstBrace);
-      }
-      
-      if (startIndex === -1) {
-        throw new Error("No JSON object or array found in the AI response.");
-      }
-  
-      // Find the last '}' or ']' to find the end
+      if (firstBracket === -1) { startIndex = firstBrace; } 
+      else if (firstBrace === -1) { startIndex = firstBracket; } 
+      else { startIndex = Math.min(firstBracket, firstBrace); }
+      if (startIndex === -1) { throw new Error("No JSON object or array found in the AI response."); }
       const lastBrace = aiText.lastIndexOf('}');
       const lastBracket = aiText.lastIndexOf(']');
       const endIndex = Math.max(lastBrace, lastBracket);
-  
-      if (endIndex === -1) {
-        throw new Error("Could not find the end of the JSON object or array.");
-      }
-      
-      // Extract the potential JSON string
+      if (endIndex === -1) { throw new Error("Could not find the end of the JSON object or array."); }
       const jsonString = aiText.substring(startIndex, endIndex + 1);
-      
-      // Parse and return the clean JSON
       return JSON.parse(jsonString);
-  
     } catch (e) {
       console.error("Failed to parse JSON from AI response.", e);
-      // Original error for when parsing fails
       throw new Error("The AI returned a response in an unexpected format.");
     }
   }
